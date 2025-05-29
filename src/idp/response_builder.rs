@@ -120,6 +120,7 @@ fn build_response(
     not_before: &Option<DateTime<Utc>>,
     not_on_or_after: &Option<DateTime<Utc>>,
     digest_algorithm: &DigestAlgorithm,
+    recipient: &Option<&str>,
 ) -> Response {
     let issuer = Issuer {
         value: Some(issuer.to_string()),
@@ -127,6 +128,10 @@ fn build_response(
     };
 
     let response_id = crypto::gen_saml_response_id();
+
+    // If an optional recipient has been provided, use that. Else use the
+    // destination which is the standard.
+    let recipient = recipient.unwrap_or(destination);
 
     Response {
         id: response_id.clone(),
@@ -153,7 +158,7 @@ fn build_response(
             name_id,
             request_id,
             issuer,
-            destination,
+            recipient,
             audience,
             attributes,
             name_id_format,
@@ -175,18 +180,25 @@ pub fn build_response_template(
     not_before: &Option<DateTime<Utc>>,
     not_on_or_after: &Option<DateTime<Utc>>,
     digest_algorithm: &DigestAlgorithm,
+    destination: &Option<&str>,
+    recipient: &Option<&str>,
 ) -> Response {
+    // If an optional destination has been provided, use that. Else use the ACS
+    // URL which is the standard.
+    let destination = destination.unwrap_or(acs_url);
+
     build_response(
         name_id,
         issuer,
         request_id,
         attributes,
-        acs_url,
+        destination,
         audience,
         cert_der,
         name_id_format,
         not_before,
         not_on_or_after,
         digest_algorithm,
+        recipient,
     )
 }

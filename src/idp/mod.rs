@@ -155,6 +155,8 @@ impl IdentityProvider {
             &optional_arguments.not_before,
             &optional_arguments.not_on_or_after,
             &optional_arguments.digest_algorithm,
+            &optional_arguments.destination.as_deref(),
+            &optional_arguments.recipient.as_deref(),
         );
 
         let response_xml_unsigned = response.to_string()?;
