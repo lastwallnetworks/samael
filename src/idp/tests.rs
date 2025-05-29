@@ -97,8 +97,7 @@ fn test_signed_response() {
             "https://idp.example.com",
             verified.id.as_str(),
             &attrs,
-            &None,
-            &None,
+            &Default::default(),
         )
         .expect("failed to created and sign response");
 
@@ -158,8 +157,7 @@ fn test_signed_response_fingerprint() {
             "https://idp.example.com",
             "",
             &[],
-            &None,
-            &None,
+            &Default::default(),
         )
         .expect("failed to created and sign response");
     let base64_cert = response
@@ -357,8 +355,7 @@ fn test_email_name_id_format() {
     let idp = IdentityProvider::from_rsa_private_key_der(include_bytes!(
         "../../test_vectors/idp_private_key.der"
     ))
-    .expect("failed to create idp")
-    .with_name_id_format(NameIdFormat::EmailAddressNameIDFormat);
+    .expect("failed to create idp");
 
     let params = CertificateParams {
         common_name: "https://idp.example.com",
@@ -374,6 +371,9 @@ fn test_email_name_id_format() {
         .try_verify_self_signed()
         .expect("failed to verify self signed signature");
 
+    let optional_arguments =
+        OptionalSigningArgs::default().with_name_id_format(NameIdFormat::EmailAddressNameIDFormat);
+
     // Act
     let out_response = idp
         .sign_authn_response(
@@ -384,8 +384,7 @@ fn test_email_name_id_format() {
             "https://idp.example.com",
             verified.id.as_str(),
             &[],
-            &None,
-            &None,
+            &optional_arguments,
         )
         .expect("failed to created and sign response");
 
@@ -429,6 +428,10 @@ fn test_not_before_and_after_conditions() {
     let not_before = Utc::now();
     let not_on_or_after = Utc::now() + Duration::hours(1);
 
+    let optional_arguments = OptionalSigningArgs::default()
+        .with_not_before(not_before)
+        .with_not_on_or_after(not_on_or_after);
+
     // Act
     let out_response = idp
         .sign_authn_response(
@@ -439,8 +442,7 @@ fn test_not_before_and_after_conditions() {
             "https://idp.example.com",
             verified.id.as_str(),
             &[],
-            &Some(not_before),
-            &Some(not_on_or_after),
+            &optional_arguments,
         )
         .expect("failed to created and sign response");
 
@@ -460,13 +462,12 @@ fn test_not_before_and_after_conditions() {
 }
 
 #[test]
-fn test_altering_assertion_digest() {
+fn test_altering_assertion_digest_to_sha256() {
     // Arrange
     let idp = IdentityProvider::from_rsa_private_key_der(include_bytes!(
         "../../test_vectors/idp_private_key.der"
     ))
-    .expect("failed to create idp")
-    .with_digest_algorithm(DigestAlgorithm::Sha256);
+    .expect("failed to create idp");
 
     let params = CertificateParams {
         common_name: "https://idp.example.com",
@@ -482,6 +483,9 @@ fn test_altering_assertion_digest() {
         .try_verify_self_signed()
         .expect("failed to verify self signed signature");
 
+    let optional_arguments =
+        OptionalSigningArgs::default().with_digest_algorithm(DigestAlgorithm::Sha256);
+
     // Act
     let out_response = idp
         .sign_authn_response(
@@ -492,8 +496,7 @@ fn test_altering_assertion_digest() {
             "https://idp.example.com",
             verified.id.as_str(),
             &[],
-            &None,
-            &None,
+            &optional_arguments,
         )
         .expect("failed to created and sign response");
 
