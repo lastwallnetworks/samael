@@ -1,5 +1,5 @@
 use super::*;
-use chrono::prelude::*;
+use chrono::{prelude::*, Duration};
 
 use crate::crypto::verify_signed_xml;
 use crate::idp::sp_extractor::{RequiredAttribute, SPMetadataExtractor};
@@ -97,6 +97,8 @@ fn test_signed_response() {
             "https://idp.example.com",
             verified.id.as_str(),
             &attrs,
+            &None,
+            &None,
         )
         .expect("failed to created and sign response");
 
@@ -156,6 +158,8 @@ fn test_signed_response_fingerprint() {
             "https://idp.example.com",
             "",
             &[],
+            &None,
+            &None,
         )
         .expect("failed to created and sign response");
     let base64_cert = response
@@ -345,4 +349,112 @@ fn test_accept_signed_with_correct_key_idp_3() {
     );
 
     assert!(resp.is_ok());
+}
+
+#[test]
+fn test_email_name_id_format() {
+    // Arrange
+    let idp = IdentityProvider::from_rsa_private_key_der(include_bytes!(
+        "../../test_vectors/idp_private_key.der"
+    ))
+    .expect("failed to create idp")
+    .with_name_id_format(NameIdFormat::EmailAddressNameIDFormat);
+
+    let params = CertificateParams {
+        common_name: "https://idp.example.com",
+        issuer_name: "https://idp.example.com",
+        days_until_expiration: 3650,
+    };
+
+    let idp_cert = idp.create_certificate(&params).expect("idp cert error");
+
+    let authn_request_xml = include_str!("../../test_vectors/authn_request.xml");
+    let unverified = UnverifiedAuthnRequest::from_xml(authn_request_xml).expect("failed to parse");
+    let verified = unverified
+        .try_verify_self_signed()
+        .expect("failed to verify self signed signature");
+
+    // Act
+    let out_response = idp
+        .sign_authn_response(
+            idp_cert.as_slice(),
+            "testuser@example.com",
+            "https://sp.example.com/audience",
+            "https://sp.example.com/acs",
+            "https://idp.example.com",
+            verified.id.as_str(),
+            &[],
+            &None,
+            &None,
+        )
+        .expect("failed to created and sign response");
+
+    // Assert
+    let out_xml = out_response
+        .to_string()
+        .expect("failed to serialize response xml");
+
+    assert!(
+        out_xml.contains(NameIdFormat::EmailAddressNameIDFormat.value()),
+        "the email address NameId format URN should be present in the XML response"
+    );
+    assert!(
+        !out_xml.contains(NameIdFormat::UnspecifiedNameIDFormat.value()),
+        "the default NameId format URN should not be present in the XML response"
+    );
+}
+
+#[test]
+fn test_not_before_and_after_conditions() {
+    // Arrange
+    let idp = IdentityProvider::from_rsa_private_key_der(include_bytes!(
+        "../../test_vectors/idp_private_key.der"
+    ))
+    .expect("failed to create idp");
+
+    let params = CertificateParams {
+        common_name: "https://idp.example.com",
+        issuer_name: "https://idp.example.com",
+        days_until_expiration: 3650,
+    };
+
+    let idp_cert = idp.create_certificate(&params).expect("idp cert error");
+
+    let authn_request_xml = include_str!("../../test_vectors/authn_request.xml");
+    let unverified = UnverifiedAuthnRequest::from_xml(authn_request_xml).expect("failed to parse");
+    let verified = unverified
+        .try_verify_self_signed()
+        .expect("failed to verify self signed signature");
+
+    let not_before = Utc::now();
+    let not_on_or_after = Utc::now() + Duration::hours(1);
+
+    // Act
+    let out_response = idp
+        .sign_authn_response(
+            idp_cert.as_slice(),
+            "testuser@example.com",
+            "https://sp.example.com/audience",
+            "https://sp.example.com/acs",
+            "https://idp.example.com",
+            verified.id.as_str(),
+            &[],
+            &Some(not_before),
+            &Some(not_on_or_after),
+        )
+        .expect("failed to created and sign response");
+
+    // Assert
+    let out_xml = out_response
+        .to_string()
+        .expect("failed to serialize response xml");
+
+    assert!(out_xml.contains(&format!(
+        "NotBefore=\"{}\"",
+        not_before.to_rfc3339_opts(SecondsFormat::Secs, true)
+    )));
+    assert!(out_xml.contains(&format!(
+        "NotOnOrAfter=\"{}\"",
+        not_on_or_after.to_rfc3339_opts(SecondsFormat::Secs, true)
+    )));
 }

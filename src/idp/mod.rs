@@ -8,6 +8,7 @@ pub mod verified_request;
 #[cfg(test)]
 mod tests;
 
+use chrono::{DateTime, Utc};
 use openssl::bn::{BigNum, MsbOption};
 use openssl::ec::{EcGroup, EcKey};
 use openssl::nid::Nid;
@@ -146,6 +147,8 @@ impl IdentityProvider {
         issuer: &str,
         in_response_to_id: &str,
         attributes: &[ResponseAttribute],
+        not_before: &Option<DateTime<Utc>>,
+        not_on_or_after: &Option<DateTime<Utc>>,
     ) -> Result<Response, Box<dyn std::error::Error>> {
         let response = build_response_template(
             idp_x509_cert_der,
@@ -156,6 +159,8 @@ impl IdentityProvider {
             in_response_to_id,
             attributes,
             &self.name_id_format,
+            not_before,
+            not_on_or_after,
         );
 
         let response_xml_unsigned = response.to_string()?;

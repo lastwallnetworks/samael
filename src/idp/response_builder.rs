@@ -6,15 +6,19 @@ use crate::schema::{
     SubjectConfirmationData, SubjectNameID,
 };
 use crate::signature::Signature;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 
 use super::sp_extractor::RequiredAttribute;
 use crate::crypto;
 
-fn build_conditions(audience: &str) -> Conditions {
+fn build_conditions(
+    audience: &str,
+    not_before: &Option<DateTime<Utc>>,
+    not_on_or_after: &Option<DateTime<Utc>>,
+) -> Conditions {
     Conditions {
-        not_before: None,
-        not_on_or_after: None,
+        not_before: *not_before,
+        not_on_or_after: *not_on_or_after,
         audience_restrictions: Some(vec![AudienceRestriction {
             audience: vec![audience.to_string()],
         }]),
@@ -65,6 +69,8 @@ fn build_assertion(
     audience: &str,
     attributes: &[ResponseAttribute],
     name_id_format: &NameIdFormat,
+    not_before: &Option<DateTime<Utc>>,
+    not_on_or_after: &Option<DateTime<Utc>>,
 ) -> Assertion {
     let assertion_id = crypto::gen_saml_assertion_id();
 
@@ -92,7 +98,7 @@ fn build_assertion(
                 }),
             }]),
         }),
-        conditions: Some(build_conditions(audience)),
+        conditions: Some(build_conditions(audience, not_before, not_on_or_after)),
         authn_statements: Some(vec![build_authn_statement(
             "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified",
         )]),
@@ -111,6 +117,8 @@ fn build_response(
     audience: &str,
     x509_cert: &[u8],
     name_id_format: &NameIdFormat,
+    not_before: &Option<DateTime<Utc>>,
+    not_on_or_after: &Option<DateTime<Utc>>,
 ) -> Response {
     let issuer = Issuer {
         value: Some(issuer.to_string()),
@@ -144,6 +152,8 @@ fn build_response(
             audience,
             attributes,
             name_id_format,
+            not_before,
+            not_on_or_after,
         )),
     }
 }
@@ -157,6 +167,8 @@ pub fn build_response_template(
     request_id: &str,
     attributes: &[ResponseAttribute],
     name_id_format: &NameIdFormat,
+    not_before: &Option<DateTime<Utc>>,
+    not_on_or_after: &Option<DateTime<Utc>>,
 ) -> Response {
     build_response(
         name_id,
@@ -167,5 +179,7 @@ pub fn build_response_template(
         audience,
         cert_der,
         name_id_format,
+        not_before,
+        not_on_or_after,
     )
 }
