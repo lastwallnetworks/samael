@@ -5,7 +5,7 @@ use crate::schema::{
     AuthnStatement, Conditions, Issuer, Response, Status, StatusCode, Subject, SubjectConfirmation,
     SubjectConfirmationData, SubjectNameID,
 };
-use crate::signature::Signature;
+use crate::signature::{DigestAlgorithm, Signature};
 use chrono::{DateTime, Utc};
 
 use super::sp_extractor::RequiredAttribute;
@@ -119,6 +119,7 @@ fn build_response(
     name_id_format: &NameIdFormat,
     not_before: &Option<DateTime<Utc>>,
     not_on_or_after: &Option<DateTime<Utc>>,
+    digest_algorithm: &DigestAlgorithm,
 ) -> Response {
     let issuer = Issuer {
         value: Some(issuer.to_string()),
@@ -135,7 +136,11 @@ fn build_response(
         destination: Some(destination.to_string()),
         consent: None,
         issuer: Some(issuer.clone()),
-        signature: Some(Signature::template(&response_id, x509_cert)),
+        signature: Some(Signature::template(
+            &response_id,
+            x509_cert,
+            digest_algorithm,
+        )),
         status: Some(Status {
             status_code: StatusCode {
                 value: Some("urn:oasis:names:tc:SAML:2.0:status:Success".to_string()),
@@ -169,6 +174,7 @@ pub fn build_response_template(
     name_id_format: &NameIdFormat,
     not_before: &Option<DateTime<Utc>>,
     not_on_or_after: &Option<DateTime<Utc>>,
+    digest_algorithm: &DigestAlgorithm,
 ) -> Response {
     build_response(
         name_id,
@@ -181,5 +187,6 @@ pub fn build_response_template(
         name_id_format,
         not_before,
         not_on_or_after,
+        digest_algorithm,
     )
 }

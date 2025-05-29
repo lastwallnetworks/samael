@@ -21,11 +21,13 @@ use crate::crypto::{self};
 use crate::idp::response_builder::{build_response_template, ResponseAttribute};
 use crate::metadata::NameIdFormat;
 use crate::schema::Response;
+use crate::signature::DigestAlgorithm;
 use crate::traits::ToXml;
 
 pub struct IdentityProvider {
     private_key: pkey::PKey<Private>,
     name_id_format: NameIdFormat,
+    digest_algorithm: DigestAlgorithm,
 }
 
 pub enum Rsa {
@@ -80,6 +82,7 @@ impl IdentityProvider {
         Ok(IdentityProvider {
             private_key,
             name_id_format: NameIdFormat::default(),
+            digest_algorithm: DigestAlgorithm::default(),
         })
     }
 
@@ -90,6 +93,7 @@ impl IdentityProvider {
         Ok(IdentityProvider {
             private_key,
             name_id_format: NameIdFormat::default(),
+            digest_algorithm: DigestAlgorithm::default(),
         })
     }
 
@@ -161,6 +165,7 @@ impl IdentityProvider {
             &self.name_id_format,
             not_before,
             not_on_or_after,
+            &self.digest_algorithm,
         );
 
         let response_xml_unsigned = response.to_string()?;
@@ -182,6 +187,20 @@ impl IdentityProvider {
     /// ```
     pub fn with_name_id_format(mut self, name_id_format: NameIdFormat) -> Self {
         self.name_id_format = name_id_format;
+
+        self
+    }
+
+    /// Change the algorithm used to create the assertion digest.
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// let idp = IdentityProvider::from_rsa_private_key_der(&der_bytes)?
+    ///     .with_digest_algorithm(DigestAlgorithm::Sha256);
+    /// ```
+    pub fn with_digest_algorithm(mut self, digest_algorithm: DigestAlgorithm) -> Self {
+        self.digest_algorithm = digest_algorithm;
 
         self
     }

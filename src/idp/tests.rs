@@ -458,3 +458,55 @@ fn test_not_before_and_after_conditions() {
         not_on_or_after.to_rfc3339_opts(SecondsFormat::Secs, true)
     )));
 }
+
+#[test]
+fn test_altering_assertion_digest() {
+    // Arrange
+    let idp = IdentityProvider::from_rsa_private_key_der(include_bytes!(
+        "../../test_vectors/idp_private_key.der"
+    ))
+    .expect("failed to create idp")
+    .with_digest_algorithm(DigestAlgorithm::Sha256);
+
+    let params = CertificateParams {
+        common_name: "https://idp.example.com",
+        issuer_name: "https://idp.example.com",
+        days_until_expiration: 3650,
+    };
+
+    let idp_cert = idp.create_certificate(&params).expect("idp cert error");
+
+    let authn_request_xml = include_str!("../../test_vectors/authn_request.xml");
+    let unverified = UnverifiedAuthnRequest::from_xml(authn_request_xml).expect("failed to parse");
+    let verified = unverified
+        .try_verify_self_signed()
+        .expect("failed to verify self signed signature");
+
+    // Act
+    let out_response = idp
+        .sign_authn_response(
+            idp_cert.as_slice(),
+            "testuser@example.com",
+            "https://sp.example.com/audience",
+            "https://sp.example.com/acs",
+            "https://idp.example.com",
+            verified.id.as_str(),
+            &[],
+            &None,
+            &None,
+        )
+        .expect("failed to created and sign response");
+
+    // Assert
+    let out_xml = out_response
+        .to_string()
+        .expect("failed to serialize response xml");
+
+    assert!(
+        out_xml
+            .contains("<ds:DigestMethod Algorithm=\"http://www.w3.org/2001/04/xmlenc#sha256\"/>"),
+        "should contain a sha256 digest instead of the default sha1"
+    );
+    verify_signed_xml(out_xml.as_bytes(), idp_cert.as_slice(), Some("ID"))
+        .expect("verification failed");
+}
