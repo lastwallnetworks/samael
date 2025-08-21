@@ -18,25 +18,38 @@ fn main() {
 
     if env::var_os("CARGO_FEATURE_XMLSEC").is_some() {
 
+        // Get the build target.
+        let target = env::var("TARGET").unwrap();
 
-        // In our homebrew, libxml2 falls back to the system library,
-        // even when pkg-config config file locations are explicitly set
-        // via PKG_CONFIG_PATH. Here the path to libxml2 is set explictly
-        // to the brew libxml2 library. 
-        let prefix = String::from_utf8(
-            std::process::Command::new("brew")
-                .args(["--prefix", "libxml2"])
-                .output()
-                .unwrap()
-                .stdout,
-        ).unwrap();
-        let prefix = prefix.trim();
+        // We are checking the architecture here as a crude way of seeing if we are building on a dev machine. 
+        // We have no other targets that are Apple Silicon based Macs other than our local machines. In this case
+        // use the homebrew libxml2.
+        if target == "aarch64-apple-darwin" {
+            // In our homebrew, libxml2 falls back to the system library,
+            // even when pkg-config config file locations are explicitly set
+            // via PKG_CONFIG_PATH. Here the path to libxml2 is set explictly
+            // to the brew libxml2 library. 
+            let prefix = String::from_utf8(
+                std::process::Command::new("brew")
+                    .args(["--prefix", "libxml2"])
+                    .output()
+                    .unwrap()
+                    .stdout,
+            ).unwrap();
+            let prefix = prefix.trim();
 
-        // Make the linker search Homebrew's lib dir
-        println!("cargo:rustc-link-search=native={}/lib", prefix);
+            // Make the linker search Homebrew's lib dir
+            println!("cargo:rustc-link-search=native={}/lib", prefix);
 
-        // Force the exact library file. No messing about
-        println!("cargo:rustc-link-arg={}/lib/libxml2.2.dylib", prefix);
+            // Force the exact library file. Don't depend at all on 
+            // pkg-config to be able to find the correct library.
+            println!("cargo:rustc-link-arg={}/lib/libxml2.2.dylib", prefix);
+        } 
+        // For all other architectures, use the same system-level library as before.
+        else {
+            println!("cargo:rustc-link-lib=libxml2");
+        }
+
 
         let lib = PkgConfig::new()
             .probe("xmlsec1")
