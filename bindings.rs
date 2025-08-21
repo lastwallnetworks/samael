@@ -47,9 +47,8 @@ fn main() {
         } 
         // For all other architectures, use the same system-level library as before.
         else {
-            println!("cargo:rustc-link-lib=libxml2");
+            println!("cargo:rustc-link-lib=xml2");
         }
-
 
         let lib = PkgConfig::new()
             .probe("xmlsec1")
