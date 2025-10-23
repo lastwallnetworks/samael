@@ -713,7 +713,7 @@ pub(crate) fn decrypt_aead(
 #[cfg(test)]
 mod test {
     use super::UrlVerifier;
-    use crate::service_provider::ServiceProvider;
+    use crate::{metadata::HTTP_REDIRECT_BINDING, service_provider::ServiceProvider};
     use chrono::{DateTime, Utc};
 
     #[test]
@@ -740,7 +740,7 @@ mod test {
         };
 
         let authn_request = sp
-            .make_authentication_request("http://dummy.fake/saml")
+            .make_authentication_request("http://dummy.fake/saml", HTTP_REDIRECT_BINDING)
             .unwrap();
 
         let private_key = openssl::rsa::Rsa::private_key_from_der(private_key).unwrap();
@@ -792,7 +792,7 @@ mod test {
         };
 
         let authn_request = sp
-            .make_authentication_request("http://dummy.fake/saml")
+            .make_authentication_request("http://dummy.fake/saml", HTTP_REDIRECT_BINDING)
             .unwrap();
 
         let private_key = openssl::ec::EcKey::private_key_from_pem(private_key).unwrap();

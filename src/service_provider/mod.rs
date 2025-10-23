@@ -145,7 +145,7 @@ impl From<crypto::Error> for Error {
     }
 }
 
-#[derive(Builder, Clone)]
+#[derive(Builder, Debug, Clone)]
 #[builder(default, setter(into))]
 pub struct ServiceProvider {
     pub entity_id: Option<String>,
@@ -521,6 +521,7 @@ impl ServiceProvider {
     pub fn make_authentication_request(
         &self,
         idp_url: &str,
+        binding: &str,
     ) -> Result<AuthnRequest, Box<dyn std::error::Error>> {
         let entity_id = if let Some(entity_id) = self.entity_id.clone() {
             Some(entity_id)
@@ -531,7 +532,7 @@ impl ServiceProvider {
         Ok(AuthnRequest {
             assertion_consumer_service_url: self.acs_url.clone(),
             destination: Some(idp_url.to_string()),
-            protocol_binding: Some(HTTP_POST_BINDING.to_string()),
+            protocol_binding: Some(binding.to_string()),
             id: format!("id-{}", rand::random::<u32>()),
             issue_instant: Utc::now(),
             version: "2.0".to_string(),
