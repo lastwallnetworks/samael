@@ -143,6 +143,12 @@ impl IdentityProvider {
         attributes: &[ResponseAttribute],
         optional_arguments: &OptionalSigningArgs,
     ) -> Result<Response, Box<dyn std::error::Error>> {
+        let assertion_signing_der = if let true = optional_arguments.sign_assertion {
+            Some(self.export_private_key_der()?.as_slice().to_owned())
+        } else {
+            None
+        };
+
         let response = build_response_template(
             idp_x509_cert_der,
             subject_name_id,
@@ -155,6 +161,7 @@ impl IdentityProvider {
             &optional_arguments.not_before,
             &optional_arguments.not_on_or_after,
             &optional_arguments.digest_algorithm,
+            assertion_signing_der.as_deref(),
             &optional_arguments.destination_override.as_deref(),
             &optional_arguments.recipient_override.as_deref(),
         );
@@ -190,6 +197,9 @@ pub struct OptionalSigningArgs {
     /// Indicates the format used by the `NameId` field.
     name_id_format: NameIdFormat,
 
+    /// Indicates if the assertion should also be signed.
+    sign_assertion: bool,
+
     /// Defines which algorithm should be used to generate the assertion digest.
     digest_algorithm: DigestAlgorithm,
 }
@@ -202,6 +212,7 @@ impl Default for OptionalSigningArgs {
             destination_override: None,
             recipient_override: None,
             name_id_format: NameIdFormat::default(),
+            sign_assertion: false,
             digest_algorithm: DigestAlgorithm::default(),
         }
     }
@@ -239,6 +250,13 @@ impl OptionalSigningArgs {
     pub fn with_name_id_format(self, name_id_format: NameIdFormat) -> Self {
         Self {
             name_id_format,
+            ..self
+        }
+    }
+
+    pub fn with_sign_assertion(self, sign_assertion: bool) -> Self {
+        Self {
+            sign_assertion,
             ..self
         }
     }
