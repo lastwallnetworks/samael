@@ -6,7 +6,9 @@ use crate::schema::{
     SubjectConfirmationData, SubjectNameID,
 };
 use crate::signature::{DigestAlgorithm, Signature};
+use crate::traits::ToXml;
 use chrono::{DateTime, Utc};
+use std::str::FromStr;
 
 use super::sp_extractor::RequiredAttribute;
 use crate::crypto;
@@ -64,6 +66,65 @@ fn build_attributes(formats_names_values: &[ResponseAttribute]) -> Vec<Attribute
                 .collect(),
         })
         .collect()
+}
+
+fn build_assertion_signed(
+    name_id: &str,
+    request_id: &str,
+    issuer: Issuer,
+    recipient: &str,
+    audience: &str,
+    attributes: &[ResponseAttribute],
+    name_id_format: &NameIdFormat,
+    not_before: &Option<DateTime<Utc>>,
+    not_on_or_after: &Option<DateTime<Utc>>,
+    x509_cert: &[u8],
+    digest_algorithm: &DigestAlgorithm,
+    assertion_signing_der: &[u8],
+) -> Result<Assertion, Box<dyn std::error::Error>> {
+    let assertion_id = crypto::gen_saml_assertion_id();
+
+    let assertion = Assertion {
+        id: assertion_id.clone(),
+        issue_instant: Utc::now(),
+        version: "2.0".to_string(),
+        issuer,
+        signature: Some(Signature::template(
+            assertion_id.as_str(),
+            x509_cert,
+            digest_algorithm,
+        )),
+        subject: Some(Subject {
+            name_id: Some(SubjectNameID {
+                format: Some(name_id_format.value().to_owned()),
+                value: name_id.to_owned(),
+            }),
+            subject_confirmations: Some(vec![SubjectConfirmation {
+                method: Some("urn:oasis:names:tc:SAML:2.0:cm:bearer".to_string()),
+                name_id: None,
+                subject_confirmation_data: Some(SubjectConfirmationData {
+                    not_before: None,
+                    not_on_or_after: None,
+                    recipient: Some(recipient.to_owned()),
+                    in_response_to: Some(request_id.to_owned()),
+                    address: None,
+                    content: None,
+                }),
+            }]),
+        }),
+        conditions: Some(build_conditions(audience, not_before, not_on_or_after)),
+        authn_statements: Some(vec![build_authn_statement(
+            "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified",
+        )]),
+        attribute_statements: Some(vec![AttributeStatement {
+            attributes: build_attributes(attributes),
+        }]),
+    };
+
+    let assertion_unsigned = assertion.to_string()?;
+    let signed_xml = crypto::sign_xml(assertion_unsigned.as_str(), assertion_signing_der)?;
+    let signed_response = Assertion::from_str(signed_xml.as_str())?;
+    Ok(signed_response)
 }
 
 fn build_assertion(
@@ -126,6 +187,7 @@ fn build_response(
     not_on_or_after: &Option<DateTime<Utc>>,
     digest_algorithm: &DigestAlgorithm,
     recipient: &Option<&str>,
+    assertion_signing_der: Option<&[u8]>,
 ) -> Response {
     let issuer = Issuer {
         value: Some(issuer.to_string()),
@@ -137,6 +199,36 @@ fn build_response(
     // If an optional recipient has been provided, use that. Else use the
     // destination which is the standard.
     let recipient = recipient.unwrap_or(destination);
+
+    let assertion = if let Some(private_key) = assertion_signing_der {
+        build_assertion_signed(
+            name_id,
+            request_id,
+            issuer.clone(),
+            recipient,
+            audience,
+            attributes,
+            name_id_format,
+            not_before,
+            not_on_or_after,
+            x509_cert,
+            digest_algorithm,
+            private_key,
+        )
+        .expect("Dont like it!")
+    } else {
+        build_assertion(
+            name_id,
+            request_id,
+            issuer.clone(),
+            recipient,
+            audience,
+            attributes,
+            name_id_format,
+            not_before,
+            not_on_or_after,
+        )
+    };
 
     Response {
         id: response_id.clone(),
@@ -159,17 +251,7 @@ fn build_response(
             status_detail: None,
         }),
         encrypted_assertion: None,
-        assertion: Some(build_assertion(
-            name_id,
-            request_id,
-            issuer,
-            recipient,
-            audience,
-            attributes,
-            name_id_format,
-            not_before,
-            not_on_or_after,
-        )),
+        assertion: Some(assertion),
     }
 }
 
@@ -185,6 +267,7 @@ pub fn build_response_template(
     not_before: &Option<DateTime<Utc>>,
     not_on_or_after: &Option<DateTime<Utc>>,
     digest_algorithm: &DigestAlgorithm,
+    assertion_signing_der: Option<&[u8]>,
     destination: &Option<&str>,
     recipient: &Option<&str>,
 ) -> Response {
@@ -205,5 +288,6 @@ pub fn build_response_template(
         not_on_or_after,
         digest_algorithm,
         recipient,
+        assertion_signing_der,
     )
 }
