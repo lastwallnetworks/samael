@@ -103,7 +103,7 @@ fn build_assertion_signed(
                 method: Some("urn:oasis:names:tc:SAML:2.0:cm:bearer".to_string()),
                 name_id: None,
                 subject_confirmation_data: Some(SubjectConfirmationData {
-                    not_before: *not_before,
+                    not_before: None,
                     not_on_or_after: *not_on_or_after,
                     recipient: Some(recipient.to_owned()),
                     in_response_to: Some(request_id.to_owned()),
@@ -155,7 +155,7 @@ fn build_assertion(
                 method: Some("urn:oasis:names:tc:SAML:2.0:cm:bearer".to_string()),
                 name_id: None,
                 subject_confirmation_data: Some(SubjectConfirmationData {
-                    not_before: *not_before,
+                    not_before: None,
                     not_on_or_after: *not_on_or_after,
                     recipient: Some(recipient.to_owned()),
                     in_response_to: Some(request_id.to_owned()),
