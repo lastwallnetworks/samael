@@ -29,10 +29,10 @@ fn build_conditions(
     }
 }
 
-fn build_authn_statement(class: &str) -> AuthnStatement {
+fn build_authn_statement(class: &str, assertion_id: String) -> AuthnStatement {
     AuthnStatement {
         authn_instant: Some(Utc::now()),
-        session_index: None,
+        session_index: Some(assertion_id.clone()),
         session_not_on_or_after: None,
         subject_locality: None,
         authn_context: Some(AuthnContext {
@@ -115,6 +115,7 @@ fn build_assertion_signed(
         conditions: Some(build_conditions(audience, not_before, not_on_or_after)),
         authn_statements: Some(vec![build_authn_statement(
             "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified",
+            assertion_id.clone(),
         )]),
         attribute_statements: Some(vec![AttributeStatement {
             attributes: build_attributes(attributes),
@@ -141,7 +142,7 @@ fn build_assertion(
     let assertion_id = crypto::gen_saml_assertion_id();
 
     Assertion {
-        id: assertion_id,
+        id: assertion_id.clone(),
         issue_instant: Utc::now(),
         version: "2.0".to_string(),
         issuer,
@@ -167,6 +168,7 @@ fn build_assertion(
         conditions: Some(build_conditions(audience, not_before, not_on_or_after)),
         authn_statements: Some(vec![build_authn_statement(
             "urn:oasis:names:tc:SAML:2.0:ac:classes:unspecified",
+            assertion_id.clone(),
         )]),
         attribute_statements: Some(vec![AttributeStatement {
             attributes: build_attributes(attributes),
